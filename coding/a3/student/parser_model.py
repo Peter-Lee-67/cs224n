@@ -72,10 +72,15 @@ class ParserModel(nn.Module):
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#dropout-layers
         ### 
         ### See the PDF for hints.
-
-
-
-
+        self.embed_to_hidden_weight = nn.Parameter(torch.Tensor(self.n_features * self.embed_size, self.hidden_size))
+        nn.init.xavier_uniform_(self.embed_to_hidden_weight)
+        self.embed_to_hidden_bias = nn.Parameter(torch.Tensor(self.hidden_size))
+        nn.init.uniform_(self.embed_to_hidden_bias)
+        self.dropout = nn.Dropout(p=self.dropout_prob)
+        self.hidden_to_logits_weight = nn.Parameter(torch.Tensor(self.hidden_size, self.n_classes))
+        nn.init.xavier_uniform_(self.hidden_to_logits_weight)
+        self.hidden_to_logits_bias = nn.Parameter(torch.Tensor(self.n_classes))
+        nn.init.uniform_(self.hidden_to_logits_bias)
         ### END YOUR CODE
 
     def embedding_lookup(self, w):
@@ -106,12 +111,16 @@ class ParserModel(nn.Module):
         ###     Gather: https://pytorch.org/docs/stable/torch.html#torch.gather
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
         ###     Flatten: https://pytorch.org/docs/stable/generated/torch.flatten.html
-
-
-
+        """
+        self.embeddings: (num_words, embedding_size)
+        w: (batch_size, n_features)
+        x: (batch_size, num_words * embedding_size)
+        """
+        w_flatten = torch.flatten(w)
+        x_flatten = torch.index_select(self.embeddings, 0, w_flatten)
+        x = x_flatten.view(w.shape[0], -1)
         ### END YOUR CODE
         return x
-
 
     def forward(self, w):
         """ Run the model forward.
@@ -143,8 +152,11 @@ class ParserModel(nn.Module):
         ### Please see the following docs for support:
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
-
-
+        embed = self.embedding_lookup(w)
+        hidden = F.relu(torch.matmul(embed, self.embed_to_hidden_weight) + self.embed_to_hidden_bias)
+        hidden = self.dropout(hidden)
+        logits = F.relu(torch.matmul(hidden, self.hidden_to_logits_weight) + self.hidden_to_logits_bias)
+        logits = self.dropout(logits)
         ### END YOUR CODE
         return logits
 
